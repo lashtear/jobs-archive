@@ -23,6 +23,8 @@ Very little, currently, but feedback and patches are welcome.  We have this work
 * TinyMux 2.10.0.7 + [a few patches](https://github.com/lashtear/tinymux/tree/thereach)
 * MySQL 5.1.58-1-log
 
+Source code is provided in the format of the general MUSH unformatter tools that we all use; attributes must be unwrapped before feeding into the MUX.
+
 ## Acknowledgements
 
 The idea of archiving AJ's completed jobs to a permanent forum was originally [Loki](http://www.haunted-memories.net/wiki/User:Loki)'s (Nuitari@DLAoM), and he completed working versions on DragonLance: Age of Mortals MUSH and [Haunted Memories: Vienna by Night](http://www.haunted-memories.net/) for AJ5 and SMF.
