@@ -1,0 +1,145 @@
+/* FORUM ARCHIVE CSS */
+/* This could be pasted into the end of whatever forum theme you're using */
+
+/* Yes, it needs a lot of work.  */
+
+table.jobsSummary {
+  border: solid black 1px;
+  border-collapse: collapse;
+  -moz-border-radius: 8px;
+  -webkit-border-radius: 8px;
+  border-radius: 8px;
+  margin: 3px;
+  padding: 3px;
+  width: 90%;
+}
+
+table.jobsSummary tbody {
+  margin: 3px;
+  padding: 3px;
+}
+
+table.jobsSummary tr {
+  background: inherit;
+  border: none;
+}
+
+table.jobsSummary th {
+  background: inherit;
+  border: none;
+  padding: 3px;
+  text-align: right;
+}
+
+table.jobsSummary td {
+  background: inherit;
+  border: none;
+  padding: 3px;
+}
+
+table.jobsSummary tr:nth-child( even ) {
+  background: rgba( 0, 0, 0, 0.0625 );
+}
+
+table.jobsSummary small {
+  font-size: 0.5em;
+}
+
+table.jobsEntrySummary {
+  margin: 3px;
+  padding: 3px;
+  border: solid black 1px;
+  border-collapse: collapse;
+  -moz-border-radius: 8px;
+  -webkit-border-radius: 8px;
+  border-radius: 8px;
+  width: 90%;
+}
+
+table.jobsEntrySummary tbody {
+  margin: 3px;
+  padding: 3px;
+}
+
+table.jobsEntrySummary tr {
+  background: inherit;
+  border: none;
+}
+
+table.jobsEntrySummary td {
+  background: inherit;
+  border: none;
+  padding: 3px;
+}
+
+table.jobsEntrySummary td.payload {
+  padding: 1em;
+  border: solid 1px black;
+}
+
+table.jobsEntrySummary td:first-child {
+  width: 2em;
+}
+
+table.jobsEntrySummary td:nth-child( even ) {
+  background: rgba( 0, 0, 0, 0.0625 );
+}
+
+table.jobsEntrySummary small {
+  font-size: 0.5em;
+}
+
+span.jobGreen {
+  color: #080;
+}
+
+span.jobYellow {
+  color: #880;
+}
+
+span.jobRed {
+  color: #a00;
+}
+
+table.jobsViewSummary {
+  margin: 3px;
+  padding: 3px;
+  border: solid black 1px;
+  border-collapse: collapse;
+  -moz-border-radius: 8px;
+  -webkit-border-radius: 8px;
+  border-radius: 8px;
+  width: 90%;
+}
+
+table.jobsViewSummary tbody {
+  margin: 3px;
+  padding: 3px;
+}
+
+table.jobsViewSummary tr {
+  background: inherit;
+  border: none;
+}
+
+table.jobsViewSummary td {
+  background: inherit;
+  border: none;
+  padding: 3px;
+}
+
+table.jobsViewSummary td:first-child {
+  width: 2em;
+}
+
+table.jobsViewSummary td:nth-child( even ) {
+  background: rgba( 0, 0, 0, 0.0625 );
+
+}
+
+table.jobsViewSummary td.payload {
+  padding: 1em;
+  border: solid 1px black;
+}
+
+/* Forum archive end */

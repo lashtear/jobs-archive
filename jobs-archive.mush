@@ -1,0 +1,836 @@
+# An archiving tool for Anomaly Jobs and phpBB3 on TinyMux 2.10
+
+# This can be used for general forum posting from within the MUX, but
+# is targetted at permanent archival of completed jobs.
+
+# Originally produced for The Reach http://thereachmux.org/
+
+# Primary interfaces:
+#   
+#   fn_post_new_topic
+#   fn_post_reply
+#   fn_simple_post_new_topic
+#   fn_simple_post_reply
+#   fn_post_job
+
+# Copyright (c) 2011 Emily Backes
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+#
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#
+#     * Redistributions in binary form must reproduce the above
+#       copyright notice, this list of conditions and the following
+#       disclaimer in the documentation and/or other materials provided
+#       with the distribution.
+#
+#     * Neither the name of the author nor the names of other
+#       contributors may be used to endorse or promote products derived
+#       from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+QUIT
+
+@va me=#5185
+-
+@wipe %va
+-
+@va %va=#5185
+-
+@name %va=Forum Posting Functions
+-
+@desc %va=Functions for posting to PHPBB3 forums using mysql
+-
+&copyright %va=Copyright (c) 2011 Emily Backes
+-
+&license %va=BSD 3-Clause
+-
+
+# conf prefix of forum tables
+@vp %va=phpbb_
+-
+
+# minimum length word to index for searches
+&conf_search_min_chars %va=3
+-
+
+# maximum length word to index for searches
+&conf_search_max_chars %va=84
+-
+
+# FIXME - why aren't isn't at least MAI in mainline AJ?
+&conf_local_jobtypes %va=MAI Mail|UPD Update
+-
+
+# Set this to half your LBUF size; typically 2000 or 4000, unless
+# you're running larger LBUFs.  On Reach this value is currently
+# 32000.  This is used to split messages that are near full-LBUF size
+# up into multiple chunks, so that they can be safely sent to the
+# forum without overflowing the buffer and causing invalid SQL errors.
+#
+# This process is still not well tested.  Feedback welcome.
+&conf_lbuf_div2 %va=
+  div( config( lbuf_size ), 2 )
+-
+
+&fn_sqlescape %va=
+  edit( edit( edit( edit( %0, \\, \\\\ ), ', \\' ), ", \\" ), \%, \\\\\% )
+-
+
+&fn_htmlescape %va=
+  edit( edit( edit( edit( %0, &, &amp; ), %%, &#37; ), <, &lt; ), >, &gt; )
+-
+
+&fn_sqlbegin %va=
+  strcat( 
+    sql( START TRANSACTION ), 
+    sql( SET autocommit = 0 ))
+-
+
+&fn_sqlend %va=
+  strcat( 
+    sql( COMMIT ), 
+    sql( SET autocommit = 1 ))
+-
+
+&fn_sqllastid %va=
+  sql( SELECT last_insert_id() )
+-
+
+# fn_get_forum_id(pathname, optional parent id)
+#
+# Find the forum_id of a forum /path/ by name.
+# 
+# Pathname will be split on '/' characters in order to locate
+# sub-forums within categories. This is similar to asserting a parent
+# id, but doesn't require knowing the number.
+# 
+# Pathname should not begin or end with '/'
+
+&fn_get_forum_id %va=
+  strcat( 
+    setq( a, first( %0, / )), 
+    setq( b, rest( %0, / )), 
+    switch( 1, 
+      not( words( %0, / =)), #-1 No forum name supplied, 
+      strmatch( %1, #-* ), %1, 
+      not( or( isint( %1 ), not( strlen( %1 )))), #-1 Invalid parent_id, 
+      strcat( 
+        setq( r, 
+          ulocal( %va/fn_found, 
+            sql( escape( ulocal( %va/sql_forum_by_name, %qa, %1 ))))), 
+        switch( words( %0, / ), 
+          1, %qr, 
+          ulocal( %va/fn_get_forum_id, %qb, %qr )))))
+-
+
+&fn_get_user_id %va=
+  ulocal( %va/fn_found, sql( escape( ulocal( %va/sql_user_by_name, %0 ))))
+-
+
+&fn_found %va=
+  if( not( strlen( %0 ) ), #-1 Not found, %0 )
+-
+
+&sql_forum_by_name %va=
+  strcat( 
+    SELECT forum_id 
+    FROM %vpforums 
+    WHERE forum_name = ', ulocal( %va/fn_sqlescape, %0 )', 
+    if( isnum(%1), 
+      strcat( %bAND parent_id = %1 )))
+-
+
+&sql_user_by_name %va=
+  strcat( 
+    SELECT user_id 
+    FROM %vpusers 
+    WHERE username_clean = ', ulocal( %va/fn_sqlescape, lcstr(%0) )')
+-
+
+&sql_name_by_userid %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid user id, 
+    strcat( 
+      SELECT username 
+      FROM %vpusers 
+      WHERE user_id = %0))
+-
+
+&sql_color_by_userid %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid user id, 
+    strcat( 
+      SELECT user_colour 
+      FROM %vpusers 
+      WHERE user_id = %0))
+-
+
+# takes 
+#   user_id
+#   forum_id
+#   topic title
+#   post body
+#   post time (optional)
+# returns topic_id
+
+&fn_post_new_topic %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid user id, 
+    not( isint( %1 )), #-1 Invalid forum id, 
+    gt( length( %2 ), 100 ), #-1 Title too long, 
+    not( or( isint( %4 ), not( strlen( %4 )))), #-1 Invalid topic time, 
+    strcat( 
+      ulocal( %va/fn_sqlbegin ), 
+      sql( escape( ulocal( %va/sql_insert_topic, %0, %1, %2, %4 ))), 
+      setq( t, ulocal( %va/fn_sqllastid )), 
+      sql( escape( ulocal( %va/sql_insert_post, %0, %1, %qt, %2, %3, %4 ))), 
+      setq( p, ulocal( %va/fn_sqllastid )), 
+      sql( escape( ulocal( %va/sql_update_topic_first, %qt, %qp ))), 
+      sql( escape( ulocal( %va/sql_update_forum_or_topic, 
+        topic, %0, %1, %qt, %qp, %2, %4 ))), 
+      sql( escape( ulocal( %va/sql_update_forum_or_topic, 
+        forum, %0, %1, %qt, %qp, %2, %4 ))), 
+      sql( escape( ulocal( %va/sql_update_user, %0, %4 ))), 
+      sql( escape( ulocal( %va/sql_increment_forum_topics, %1 ))), 
+      sql( escape( ulocal( %va/sql_increment_forum_posts, %1 ))), 
+      ulocal( %va/fn_sqlend ), 
+      ulocal( %va/fn_index_post, %qp, %2, %3 ), 
+      %qt ))
+-
+
+# takes
+#   user_id
+#   forum_id
+#   topic_title
+#   topic_time
+# returns topic_id
+
+&sql_insert_topic %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid user id, 
+    not( isint( %1 )), #-1 Invalid forum id, 
+    gt( length( %2 ), 100 ), #-1 Title too long, 
+    not( or( isint( %3 ), not( strlen( %3 )))), #-1 Invalid topic time, 
+    strcat( 
+
+      INSERT INTO %vptopics 
+
+      SET 
+        forum_id=%1%, 
+        topic_title=', ulocal( %va/fn_sqlescape, %2 )'%, 
+        topic_time=, if( t( %3 ), %3, secs())%, 
+        topic_poster=%0%, 
+        topic_first_poster_name=', 
+      sql( escape( ulocal( %va/sql_name_by_userid, %0 )))'%, 
+        topic_first_poster_colour=', 
+      sql( escape( ulocal( %va/sql_color_by_userid, %0 )))'))
+-
+
+# takes
+#   user_id
+#   forum_id
+#   topic_id
+#   post_title
+#   post_body
+#   post_time
+# returns post_id
+
+&sql_insert_post %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid user id, 
+    not( isint( %1 )), #-1 Invalid topic id, 
+    gt( length( %3 ), 100 ), #-1 Title too long, 
+    not( or( isint( %5 ), not( strlen( %5 )))), #-1 Invalid topic time, 
+    strcat( 
+
+      INSERT INTO %vpposts 
+
+      SET 
+        topic_id=%2%, 
+        forum_id=%1%, 
+        poster_id=%0%, 
+        poster_ip=''%, 
+        post_time=, if( t( %5 ), %5, secs())%, 
+        post_username=', sql( escape( ulocal( %va/sql_name_by_userid, %0 )))'%, 
+        post_subject=', ulocal( %va/fn_sqlescape, %3 )'%, 
+        post_text=', ulocal( %va/fn_sqlescape, %4 )'%, 
+        post_checksum=', ulocal( %va/fn_forum_checksum, %4 )'))
+-
+
+&fn_forum_checksum %va=
+  strcat( 
+   setq( 0, lcstr( digest( md5, %0 ))), 
+   switch( 1, 
+     strmatch( %q0, #-1* ), , 
+     neq( strlen(%q0), 32 ), , 
+     %q0 ))
+-
+
+# takes
+#   topic_id
+#   post_id
+
+&sql_update_topic_first %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid topic id, 
+    not( isint( %1 )), #-1 Invalid post id, 
+    strcat( 
+
+      UPDATE %vptopics 
+
+      SET 
+        topic_first_post_id=%1 
+
+      WHERE 
+        topic_id=%0 
+
+      LIMIT 1))
+-
+
+# takes
+#   forum or topic
+#   user_id
+#   forum_id
+#   topic_id
+#   post_id
+#   post_title
+#   post_time
+
+&sql_update_forum_or_topic %va=
+  switch( 1, 
+    not( match( forum topic, %0 )), #-1 Must set forum or topic, 
+    not( isint( %1 )), #-1 Invalid user id, 
+    not( isint( %2 )), #-1 Invalid forum id, 
+    not( isint( %3 )), #-1 Invalid topic id, 
+    not( isint( %4 )), #-1 Invalid post id, 
+    gt( length( %5 ), 100 ), #-1 Title too long, 
+    not( or( isint( %6 ), not( strlen( %6 )))), #-1 Invalid topic time, 
+    strcat( 
+      setq( t, lcstr( %0 )), 
+
+      UPDATE %vp%qts 
+
+      SET 
+        %qt_last_post_id=%4%, 
+        %qt_last_poster_id=%1%, 
+        %qt_last_poster_name=', 
+      sql( escape( ulocal( %va/sql_name_by_userid, %1 )))'%, 
+        %qt_last_poster_colour=', 
+      sql( escape( ulocal( %va/sql_color_by_userid, %1 )))'%, 
+        %qt_last_post_subject=', ulocal( %va/fn_sqlescape, %5 )'%, 
+        %qt_last_post_time=, if( t( %6 ), %6, secs()) 
+
+      WHERE 
+        %qt_id=, switch( %qt, forum, %2, topic, %3 ) 
+
+      LIMIT 1))
+-
+
+# takes
+#   user_id
+#   post_time
+
+&sql_update_user %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid user id, 
+    not( or( isint( %1 ), not( strlen( %1 )))), #-1 Invalid post time, 
+    strcat( 
+      setq( t, if( t( %1 ), %1, secs()) ), 
+
+      UPDATE %vpusers 
+
+      SET 
+        user_lastvisit=GREATEST(user_lastvisit%,%qt)%, 
+        user_lastpost_time=GREATEST(user_lastvisit%,%qt)%, 
+        user_posts=user_posts+1 
+
+      WHERE 
+        user_id=%0 
+
+      LIMIT 1))
+-
+
+# takes
+#   forum_id
+
+&sql_increment_forum_topics %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid forum id, 
+    strcat( 
+
+      UPDATE %vpforums 
+
+      SET 
+        forum_topics=forum_topics + 1%, 
+        forum_topics_real=forum_topics_real + 1 
+
+      WHERE 
+        forum_id=%0 
+
+      LIMIT 1))
+-
+
+# takes
+#   forum_id
+
+&sql_increment_forum_posts %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid forum id, 
+    strcat( 
+
+      UPDATE %vpforums 
+
+      SET 
+        forum_posts=forum_posts + 1 
+
+      WHERE 
+        forum_id=%0 
+
+      LIMIT 1))
+-
+
+# takes
+#   topic_id
+
+&sql_increment_topic_replies %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid topic id, 
+    strcat( 
+
+      UPDATE %vptopics 
+
+      SET 
+        topic_replies=topic_replies + 1%, 
+        topic_replies_real=topic_replies_real + 1 
+
+      WHERE 
+        topic_id=%0 
+
+      LIMIT 1))
+-
+
+# takes
+#   user_id (optional)
+#   topic_id
+#   post body
+#   post time (optional)
+# returns post_id
+
+&fn_post_reply %va=
+  switch( 1, 
+    and( strlen( %0 ), not( isint( %0 ))), #-1 Invalid user id, 
+    not( isint( %1 )), #-1 Invalid topic id, 
+    and( strlen( %3 ), not( isint( %3 ))), #-1 Invalid topic time, 
+    strcat( 
+      setq( b, 
+        sql( escape( ulocal( %va/sql_get_forum_user_title, %1 )), 
+          |, | )), 
+      setq( f, first( %qb, | )), 
+      setq( u, if( isint( %0 ), %0, index( %qb, |, 2, 1 ))), 
+      setq( s, cat( Re:, index( %qb, |, 3, 1 ))), 
+ 
+      ulocal( %va/fn_sqlbegin ), 
+      sql( escape( ulocal( %va/sql_insert_post, %qu, %qf, %1, %qs, %2, %3 ))), 
+      setq( p, ulocal( %va/fn_sqllastid )), 
+      sql( escape( ulocal( %va/sql_update_forum_or_topic, 
+        topic, %qu, %qf, %1, %qp, %qs, %3 ))), 
+      sql( escape( ulocal( %va/sql_update_forum_or_topic, 
+        forum, %qu, %qf, %1, %qp, %qs, %3 ))), 
+      sql( escape( ulocal( %va/sql_update_user, %qu, %3 ))), 
+      sql( escape( ulocal( %va/sql_increment_forum_posts, %qf ))), 
+      sql( escape( ulocal( %va/sql_increment_topic_replies, %1 ))), 
+      ulocal( %va/fn_sqlend ), 
+      ulocal( %va/fn_index_post, %qp, %qs, %2 ),
+      %qp))
+-
+
+# takes
+#   topic_id
+# returns forum_id|last poster user_id|topic Title
+
+&sql_get_forum_user_title %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid topic id, 
+    strcat( 
+      SELECT forum_id%, topic_last_poster_id%, topic_title 
+      FROM %vptopics 
+      WHERE topic_id = %0))
+-
+
+&fn_clean_for_index %va=
+  if( regmatch( %0, get( %va/reg_clean ), -1 0 -1 1 ), 
+    ulocal( %va/fn_clean_for_index, %q0 %q1 ), 
+    %0 )
+-
+
+&reg_clean %va=^([0-9a-z ]*)([^0-9a-z ]+)(.*)$
+-
+
+&fil_index_length %va=
+  cand( 
+    gte( strlen( %0 ), v( conf_search_min_chars )), 
+    lte( strlen( %0 ), v( conf_search_max_chars )))
+-
+
+&fn_words_for_index %va=
+  filter( %va/fil_index_length, 
+    setunion( 
+      trim( 
+        squish( 
+          ulocal( %va/fn_clean_for_index, 
+            lcstr( 
+              translate( %0, 0 ))))), ))
+-
+
+
+# takes
+#   post_id
+#   modifier (+ or -)
+# returns nothing
+&sql_incdec_post_in_wordlist %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid post id, 
+    not( match( + -, %1 )), #-1 Invalid modifier, 
+    not( 
+      strlen( 
+        setr( i, 
+          sql( escape( ulocal( %va/sql_get_post_word_ids, %0 )), %, )))), , 
+    strcat( 
+
+
+      UPDATE %vpsearch_wordlist 
+      SET word_count = word_count %1 1 
+      WHERE word_id IN %(%qi%)))
+-
+
+# takes
+#   post id
+# returns list of word ids
+&sql_get_post_word_ids %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid post id, 
+    strcat( 
+
+      SELECT %vpsearch_wordlist.word_id 
+      FROM %vpsearch_wordlist 
+      JOIN %vpsearch_wordmatch 
+      USING (word_id) 
+      WHERE post_id = %0))
+-
+
+# takes 
+#   post id
+&sql_unlink_post_matches %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid post id, 
+    strcat( 
+
+      DELETE FROM %vpsearch_wordmatch 
+      WHERE post_id = %0))
+-
+
+
+# takes
+#   spacesep list of words
+&sql_add_words %va=
+  switch( 1, 
+    not( strlen( %0 )), #-1 Empty word list, 
+    strcat( 
+
+      INSERT IGNORE INTO %vpsearch_wordlist (word_text) 
+      VALUES%b, 
+
+        iter( %0, 
+          strcat( 
+            %(', 
+            ulocal( %va/fn_sqlescape, %i0 ), 
+            '%)), 
+          %b, %,)))
+-
+
+# takes
+#   spacesep list of words (that must already be added!)
+# returns list of word ids
+&sql_get_list_word_ids %va=
+  switch( 1, 
+    not( strlen( %0 )), #-1 Empty word list, 
+    strcat( 
+
+      SELECT word_id 
+      FROM %vpsearch_wordlist 
+      WHERE word_text IN %(, 
+
+        iter( %0, 
+          strcat( ', ulocal( %va/fn_sqlescape, %i0 ), '), 
+          %b, %,)%)))
+-
+
+# takes
+#   spacesep list of words (that must already be added!)
+#   post id
+#   int whether or not they were in title (0 or 1)
+&sql_link_post_matches %va=
+  switch( 1, 
+    not( strlen( %0 )), #-1 Empty word list, 
+    not( isint( %1 )), #-1 Invalid post id, 
+    not( member( 0 1, %2 )), #-1 Invalid title boolean, 
+    cat( 
+
+      INSERT INTO %vpsearch_wordmatch (post_id, word_id, title_match) 
+      VALUES, 
+
+        iter( sql( escape( ulocal( %va/sql_get_list_word_ids, %0 ))), 
+          %(%1%, %i0%, %2%), 
+          %b, %, )))
+-
+
+# takes
+#   post id
+#   title text
+#   post text
+&fn_index_post %va=
+  switch( 1, 
+    not( isint( %0 )), #-1 Invalid post id, 
+    strcat( 
+      setq( a, ulocal( %va/fn_words_for_index, %1 )), 
+      setq( b, ulocal( %va/fn_words_for_index, %2 )), 
+
+      ulocal( %va/fn_sqlbegin ), 
+      sql( escape( ulocal( %va/sql_incdec_post_in_wordlist, %0, - ))), 
+      sql( escape( ulocal( %va/sql_unlink_post_matches, %0 ))), 
+      sql( escape( ulocal( %va/sql_add_words, setunion( %qa, %qb )))), 
+      sql( escape( ulocal( %va/sql_link_post_matches, %qa, %0, 1 ))), 
+      sql( escape( ulocal( %va/sql_link_post_matches, 
+                           setdiff( %qb, %qa ), %0, 0 ))), 
+      sql( escape( ulocal( %va/sql_incdec_post_in_wordlist, %0, + ))), 
+      ulocal( %va/fn_sqlend )))
+-
+
+# takes
+#   user name
+#   forum path name
+#   topic title
+#   post body
+&fn_simple_post_new_topic %va=
+  strcat( 
+    setq( u, ulocal( %va/fn_get_user_id, %0 )), 
+    setq( f, ulocal( %va/fn_get_forum_id, %1 )), 
+    switch( %qu|%qf, 
+      #-1*|*, #-1 Unknown User, 
+      *|#-1*, #-1 Unknown Forum, 
+      ulocal( %va/fn_post_new_topic, %qu, %qf, %2, %3 )))
+-
+
+# takes
+#   topic_id
+#   post body
+
+&fn_simple_post_reply %va=
+  ulocal( %va/fn_post_reply, , %0, %1 )
+-
+
+# takes
+#   DBREF of job
+
+&fn_post_job %va=
+  switch( 1, 
+    not( isdbref( %0 )), #-1 Invalid job DBREF, 
+    not( strmatch( name( %0 ), Job* )), #-1 Not a job, 
+    not( strmatch( xget( setr(p, parent( parent( %0 ))), vc ), %qp )), 
+      #-1 Not in a bucket, 
+    not( strmatch( name( %qp ), *Job Parent Object* )), #-1 Invalid JPO, 
+    strcat( 
+      setq( u, ulocal( %va/fn_get_user_id, +jobs )), 
+      setq( f, ulocal( %va/fn_get_forum_id, lcstr( name( parent( %0 ))))), 
+      switch( %qu|%qf, 
+        #-1*|*, #-1 Unable to locate +jobs user, 
+        *|#-1*, #-1 Unknown to locate bucket forum, 
+        strcat( 
+
+          setq( t, 
+            ulocal( %va/fn_post_new_topic, 
+              %qu, 
+              %qf, 
+              strtrunc( get( %0/title ), 96 ), 
+              ulocal( %va/fn_summarize_job, %0 ), 
+              get( %0/opened_on ))), 
+
+          if( %qt, 
+            iter( lnum( 1, dec( get( %0/num_comment ))), 
+              strcat( 
+                setq( c, get( %0/comment_%i0 )), 
+                iter( lnum( 1, 5 ), setq( %i0, index( %qc, |, %i0, 1 ))), 
+                iter( 1 2, 
+                  strcat(
+                    setq( p, 
+                      mid( %q5, 
+                        mul( ulocal( %va/conf_lbuf_div2 ), dec( %i0 )), 
+                        ulocal( %va/conf_lbuf_div2 ))), 
+                    if( or( strlen( %qp ), not( dec( %i0 ))), 
+                      ulocal( %va/fn_post_reply, 
+                        %qu, 
+                        %qt, 
+                        strcat( 
+                          if( gt( strlen( %q5 ), ulocal( %va/conf_lbuf_div2 )), 
+                            This post was larger than half LBUF size and 
+                            is split into two pieces. This is part %i0 of 2.), 
+                            ulocal( %va/fn_summarize_job_entry, 
+                              %0, %q1, %q2, %q3, %q4, %qp, %i1 )),
+                        %q2)))))),
+            %qt )))))
+-
+
+# takes
+#   list of DBREFs
+# returns list of names, english style
+
+&fn_people_list %va=
+  if( words( %0 ), 
+    itemize( 
+      iter( %0, 
+        if( isdbref( %i0 ), 
+          strcat( 
+            name( %i0 )&nbsp;<small>%(%i0, 
+            flags( %i0 )%)</small>), 
+          %i0 ), 
+        %b, | ), 
+      | ), 
+    none )
+-
+
+# takes
+#   unix time in seconds
+# outputs string with timezone
+
+&fn_job_time %va=
+  if( %0, 
+    strcat( 
+      convsecs( %0 )%b, 
+      setq( s, convtime( Thu Jan 1 00:00:00 1970 )), 
+      if( gt( %qs, 0 ), -, +), 
+      setq( s, abs( %qs )), 
+      rjust( div( %qs, 3600 ), 2, 0 ), 
+      rjust( mod( %qs, 3600 ), 2, 0 )), 
+    none )
+-
+
+# takes
+#   DBREF of job
+# returns string of forum BBcode
+
+&fn_summarize_job %va=
+    strcat(
+      <table class="jobsSummary">
+        <tr><th>Bucket:</th><td>, name( parent( %0 )), 
+        </td><th>Due On:</th><td>, 
+          ulocal( %va/fn_job_time, get( %0/due_on )), 
+        </td></tr>
+
+        <tr><th>Title:</th><td>, secure( get( %0/title )), 
+        </td><th>Status:</th><td>, 
+          strcat( 
+            switch( get( %0/priority ), 
+              1, <span class="jobGreen">Green</span>, 
+              2, <span class="jobYellow">Yellow</span>, 
+              3, <span class="jobRed">Red</span>, 
+              Unknown )%b%(, 
+            rest( 
+              xget( get( %0/va ), strcat( status_, get( %0/status ))), 
+              | )%))
+        </td></tr>
+
+        <tr><th>Opened On:</th><td>, 
+          ulocal( %va/fn_job_time, get( %0/opened_on )),
+        </td><th>Assigned To:</th><td>, 
+          ulocal( %va/fn_people_list, get( %0/assigned_to )), 
+        </td></tr>
+
+        <tr><th>Opened By:</th><td>, 
+          ulocal( %va/fn_people_list, get( %0/opened_by )), 
+        </td><th>Tagged:</th><td>, 
+          ulocal( %va/fn_people_list, get( %0/tagged_for )), 
+        </td></tr>
+
+        <tr><th>Readers:</th><td>,
+          ulocal( %va/fn_people_list, 
+            iter( get( %0/list_readers ), first( %i0, | ))), 
+        </td><th>Writers:</th><td>, 
+          ulocal( %va/fn_people_list, 
+            setunion( 
+              iter( lattr( %0/comment_* ), 
+                index( get( %0/%i0 ), |, 3, 1 )), )), 
+        </td></tr>
+      </table>)
+-
+
+# takes
+#   0 DBREF of job
+#   1 3 letter code
+#   2 timestamp
+#   3 dbref of user
+#   4 name of user
+#   5 comment
+#   6 comment number
+
+&fn_summarize_job_entry %va=
+    edit( 
+      strcat( 
+        <table class="jobsEntrySummary"><tr>, 
+        iter( 
+          strcat(
+            %6|,
+            ulocal( %va/fn_lookup_status_code, %0, %1 )|, 
+            ulocal( %va/fn_job_time, %2 )|, 
+            ulocal( %va/fn_people_list, %3 )|%4|, 
+            if( strmatch( flags( %0/comment_%6 ), *I* ), 
+              Published, 
+              Unpublished )), 
+          <td>%i0</td>, |, @@ ), 
+        </tr><tr><td class="payload" colspan="6">, 
+          ulocal( %va/fn_htmlescape, stripansi( %5 ))
+        </td></tr>, 
+        setq( r, graball( get( %0/list_readers ), *|%6 )), 
+        if( words( %qr ), 
+          strcat( 
+            <tr><td>%6</td><td>View record</td>
+            <td class="payload" colspan="4">, 
+            ulocal( %va/fn_people_list, 
+              iter( %qr, first( %i0, | )))%b, 
+            had read the job this far at time of archival.
+            </td></tr>)),
+        </table>), 
+      @@PIPE@@, |)
+-  
+
+# takes
+#   DBREF of job
+#   code
+
+&fn_lookup_status_code %va=
+  strcat( 
+    setq( c, 
+      strcat( 
+        xget( get( %0/va ), list_actions)|, 
+        v( conf_local_jobtypes ))),
+    setq( o , rest( grab( %qc, %1 *, | ))), 
+    if( strlen( %qo ), %qo, Unknown %(%1%)))
+-
+
+# end
