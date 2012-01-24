@@ -19,7 +19,7 @@ Originally produced for [The Reach](http://thereachmux.org/)
 Very little, currently, but feedback and patches are welcome.  We have this working with:
 
 * Anomaly Jobs 6.4 + a lot of patches
-* phpBB 3.0.9
+* phpBB 3.0.10
 * TinyMux 2.10.0.7 + [a few patches](https://github.com/lashtear/tinymux/tree/thereach)
 * MySQL 5.1.58-1-log
 

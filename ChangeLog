@@ -1,0 +1,18 @@
+2012-01-24  Emily Backes  lucca@accela.net
+
+	Update to 1.0.1 release.
+
+	Fix HTML escaping/unescaping for title/subject field for
+	maliciously named jobs or usernames/flags.
+
+	Add internal version stamp to code.
+
+	Add a ChangeLog.
+
+	Update documentation to reflect PHPBB 3.0.10.
+
+
+2011-12-06  Emily Backes  lucca@accela.net
+
+	Original release.
+

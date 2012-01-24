@@ -61,6 +61,8 @@ QUIT
 -
 &license %va=BSD 3-Clause
 -
+&version %va=1.0.1
+-
 
 # conf prefix of forum tables
 @vp %va=phpbb_
@@ -89,12 +91,17 @@ QUIT
   div( config( lbuf_size ), 2 )
 -
 
+# 3arg edit for rhost/tm3 compat
 &fn_sqlescape %va=
   edit( edit( edit( edit( %0, \\, \\\\ ), ', \\' ), ", \\" ), \%, \\\\\% )
 -
 
 &fn_htmlescape %va=
   edit( edit( edit( edit( %0, &, &amp; ), %%, &#37; ), <, &lt; ), >, &gt; )
+-
+
+&fn_htmlunescape %va=
+  edit( edit( edit( edit( %0, &#37;, %% ), &lt;, < ), &gt;, > ), &amp;, & )
 -
 
 &fn_sqlbegin %va=
@@ -221,6 +228,7 @@ QUIT
 #   topic_title
 #   topic_time
 # returns topic_id
+# FIXME - should check title length after htmlescape
 
 &sql_insert_topic %va=
   switch( 1, 
@@ -234,13 +242,14 @@ QUIT
 
       SET 
         forum_id=%1%, 
-        topic_title=', ulocal( %va/fn_sqlescape, %2 )'%, 
+        topic_title=', 
+          ulocal( %va/fn_sqlescape, ulocal( %va/fn_htmlescape, %2 ))'%, 
         topic_time=, if( t( %3 ), %3, secs())%, 
         topic_poster=%0%, 
         topic_first_poster_name=', 
-      sql( escape( ulocal( %va/sql_name_by_userid, %0 )))'%, 
+          sql( escape( ulocal( %va/sql_name_by_userid, %0 )))'%, 
         topic_first_poster_colour=', 
-      sql( escape( ulocal( %va/sql_color_by_userid, %0 )))'))
+          sql( escape( ulocal( %va/sql_color_by_userid, %0 )))'))
 -
 
 # takes
@@ -269,7 +278,8 @@ QUIT
         poster_ip=''%, 
         post_time=, if( t( %5 ), %5, secs())%, 
         post_username=', sql( escape( ulocal( %va/sql_name_by_userid, %0 )))'%, 
-        post_subject=', ulocal( %va/fn_sqlescape, %3 )'%, 
+        post_subject=', 
+          ulocal( %va/fn_sqlescape, ulocal( %va/fn_htmlescape, %3 ))'%, 
         post_text=', ulocal( %va/fn_sqlescape, %4 )'%, 
         post_checksum=', ulocal( %va/fn_forum_checksum, %4 )'))
 -
@@ -331,10 +341,11 @@ QUIT
         %qt_last_post_id=%4%, 
         %qt_last_poster_id=%1%, 
         %qt_last_poster_name=', 
-      sql( escape( ulocal( %va/sql_name_by_userid, %1 )))'%, 
+          sql( escape( ulocal( %va/sql_name_by_userid, %1 )))'%, 
         %qt_last_poster_colour=', 
-      sql( escape( ulocal( %va/sql_color_by_userid, %1 )))'%, 
-        %qt_last_post_subject=', ulocal( %va/fn_sqlescape, %5 )'%, 
+          sql( escape( ulocal( %va/sql_color_by_userid, %1 )))'%, 
+        %qt_last_post_subject=', 
+          ulocal( %va/fn_sqlescape, ulocal( %va/fn_htmlescape, %5 ))'%, 
         %qt_last_post_time=, if( t( %6 ), %6, secs()) 
 
       WHERE 
@@ -444,8 +455,8 @@ QUIT
           |, | )), 
       setq( f, first( %qb, | )), 
       setq( u, if( isint( %0 ), %0, index( %qb, |, 2, 1 ))), 
-      setq( s, cat( Re:, index( %qb, |, 3, 1 ))), 
- 
+      setq( s, cat( Re:, ulocal( %va/fn_htmlunescape, index( %qb, |, 3, 1 )))), 
+
       ulocal( %va/fn_sqlbegin ), 
       sql( escape( ulocal( %va/sql_insert_post, %qu, %qf, %1, %qs, %2, %3 ))), 
       setq( p, ulocal( %va/fn_sqllastid )), 
@@ -707,8 +718,8 @@ QUIT
       iter( %0, 
         if( isdbref( %i0 ), 
           strcat( 
-            name( %i0 )&nbsp;<small>%(%i0, 
-            flags( %i0 )%)</small>), 
+            ulocal( %va/fn_htmlescape, name( %i0 ))&nbsp;<small>%(%i0, 
+            ulocal( %va/fn_htmlescape, flags( %i0 ))%)</small>), 
           %i0 ), 
         %b, | ), 
       | ), 
@@ -743,7 +754,7 @@ QUIT
           ulocal( %va/fn_job_time, get( %0/due_on )), 
         </td></tr>
 
-        <tr><th>Title:</th><td>, secure( get( %0/title )), 
+        <tr><th>Title:</th><td>, ulocal( %va/fn_htmlescape, get( %0/title )), 
         </td><th>Status:</th><td>, 
           strcat( 
             switch( get( %0/priority ), 
