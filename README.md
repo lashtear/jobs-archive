@@ -27,6 +27,6 @@ Source code is provided in the format of the general MUSH unformatter tools that
 
 ## Acknowledgements
 
-The idea of archiving AJ's completed jobs to a permanent forum was originally [Loki](http://www.haunted-memories.net/wiki/User:Loki)'s (Nuitari@DLAoM), and he completed working versions on DragonLance: Age of Mortals MUSH and [Haunted Memories: Vienna by Night](http://www.haunted-memories.net/) for AJ5 and SMF.
+The idea of archiving AJ's completed jobs to a permanent forum was originally [Loki](http://github.com/kkragenbrink)'s (Nuitari@DLAoM), and he completed working versions on DragonLance: Age of Mortals MUSH and [Haunted Memories: Vienna by Night](http://www.haunted-memories.net/) for AJ5 and SMF.
 
 This project is an effort to provide similar functionality for newer software on a different mush-- and make it more portable and available to others.
