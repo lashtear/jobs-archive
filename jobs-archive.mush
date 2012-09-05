@@ -668,7 +668,7 @@ QUIT
       #-1 Not in a bucket, 
     not( strmatch( name( %qp ), *Job Parent Object* )), #-1 Invalid JPO, 
     strcat( 
-      setq( u, ulocal( %va/fn_get_user_id, +jobs )), 
+      setq( u, ulocal( %va/fn_get_user_id, default(%!/CONF_FORUM_USER, +jobs) )), 
       setq( f, ulocal( %va/fn_get_forum_id, lcstr( name( parent( %0 ))))), 
       switch( %qu|%qf, 
         #-1*|*, #-1 Unable to locate +jobs user, 
