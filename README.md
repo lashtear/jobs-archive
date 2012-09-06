@@ -19,9 +19,9 @@ Originally produced for [The Reach](http://thereachmux.org/)
 Very little, currently, but feedback and patches are welcome.  We have this working with:
 
 * Anomaly Jobs 6.4 + a lot of patches
-* phpBB 3.0.10
-* TinyMux 2.10.0.7 + [a few patches](https://github.com/lashtear/tinymux/tree/thereach)
-* MySQL 5.1.58-1-log
+* phpBB 3.0
+* TinyMux 2.10 + [a few patches](https://github.com/lashtear/tinymux/tree/thereach)
+* MySQL 5.1
 
 Source code is provided in the format of the general MUSH unformatter tools that we all use; attributes must be unwrapped before feeding into the MUX.
 
