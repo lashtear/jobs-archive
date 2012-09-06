@@ -135,7 +135,7 @@ QUIT
     setq( a, first( %0, / )), 
     setq( b, rest( %0, / )), 
     switch( 1, 
-      not( words( %0, / =)), #-1 No forum name supplied, 
+      not( words( %0, / )), #-1 No forum name supplied, 
       strmatch( %1, #-* ), %1, 
       not( or( isint( %1 ), not( strlen( %1 )))), #-1 Invalid parent_id, 
       strcat( 
