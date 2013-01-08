@@ -13,7 +13,7 @@
 #   fn_simple_post_reply
 #   fn_post_job
 
-# Copyright (c) 2011 Emily Backes
+# Copyright (c) 2011-2013 Emily Backes
 #
 # All rights reserved.
 #
@@ -57,11 +57,11 @@ QUIT
 -
 @desc %va=Functions for posting to PHPBB3 forums using mysql
 -
-&copyright %va=Copyright (c) 2011 Emily Backes
+&copyright %va=Copyright (c) 2011-2013 Emily Backes
 -
 &license %va=BSD 3-Clause
 -
-&version %va=1.0.1
+&version %va=1.1.0
 -
 
 # conf prefix of forum tables
@@ -706,6 +706,58 @@ QUIT
                               %0, %q1, %q2, %q3, %q4, %qp, %i1 )),
                         %q2)))))),
             %qt )))))
+-
+
+# takes
+#   DBREF of job
+
+&trig_post_job %va=
+@assert 
+  setr( e, 
+  switch( 1, 
+    not( isdbref( %0 )), #-1 Invalid job DBREF, 
+    not( strmatch( name( %0 ), Job* )), #-1 Not a job, 
+    not( strmatch( xget( setr(p, parent( parent( %0 ))), vc ), %qp )), 
+      #-1 Not in a bucket, 
+    not( strmatch( name( %qp ), *Job Parent Object* )), #-1 Invalid JPO, 
+    strcat( 
+      setq( u, ulocal( %va/fn_get_user_id, default(%!/CONF_FORUM_USER, +jobs) )), 
+      setq( f, ulocal( %va/fn_get_forum_id, lcstr( name( parent( %0 ))))), 
+      switch( %qu|%qf, 
+        #-1*|*, #-1 Unable to locate +jobs user, 
+        *|#-1*, #-1 Unknown to locate bucket forum, 
+        1 ))))=@pemit %#=<ERROR> trig_post_job setup returned %qe; 
+
+@assert 
+  setr( t, 
+    ulocal( %va/fn_post_new_topic, 
+      %qu, 
+      %qf, 
+      strtrunc( get( %0/title ), 96 ), 
+      ulocal( %va/fn_summarize_job, %0 ), 
+      get( %0/opened_on )))=@pemit %#=<ERROR> trig_post_job topic post returned %qe; 
+
+@dol lnum( 1, dec( get( %0/num_comment )))={
+think setq( c, get( %0/comment_## )); 
+think iter( lnum( 1, 5 ), setq( %i0, index( %qc, |, %i0, 1 ))); 
+think iter( 1 2, 
+  strcat( 
+    setq( p, 
+      mid( %q5, 
+	mul( ulocal( %va/conf_lbuf_div2 ), dec( %i0 )), 
+	ulocal( %va/conf_lbuf_div2 ))), 
+    if( or( strlen( %qp ), not( dec( %i0 ))), 
+      ulocal( %va/fn_post_reply, 
+	%qu, 
+	%qt, 
+	strcat( 
+	  if( gt( strlen( %q5 ), ulocal( %va/conf_lbuf_div2 )), 
+	    This post was larger than half LBUF size and 
+	    is split into two pieces. This is part %i0 of 2.), 
+	    ulocal( %va/fn_summarize_job_entry, 
+	      %0, %q1, %q2, %q3, %q4, %qp, ## )), 
+	%q2))))
+}
 -
 
 # takes

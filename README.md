@@ -6,24 +6,30 @@ This can be used for general forum posting from within the MUX, but is targetted
 
 Originally produced for [The Reach](http://thereachmux.org/)
 
-## Primary interfaces:
+## Interface
    
+### Function interface
 * fn_post_new_topic
 * fn_post_reply
 * fn_simple_post_new_topic
 * fn_simple_post_reply
 * fn_post_job
 
+### Trigger interface
+* trig_post_job
+
 ## Compatibility
 
 Very little, currently, but feedback and patches are welcome.  We have this working with:
 
-* Anomaly Jobs 6.4 + a lot of patches
+* Anomaly Jobs 6
 * phpBB 3.0
-* TinyMux 2.10 + [a few patches](https://github.com/lashtear/tinymux/tree/thereach)
-* MySQL 5.1
+* TinyMux 2.10
+* MySQL 5.1 and 5.5
 
 Source code is provided in the format of the general MUSH unformatter tools that we all use; attributes must be unwrapped before feeding into the MUX.
+
+Loki has been investigating RHOST+SMF compatibility.  Patches are quite welcome.
 
 ## Acknowledgements
 

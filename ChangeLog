@@ -1,3 +1,13 @@
+2013-01-07  Emily Backes  lucca@accela.net
+
+	Update to 1.1.0 release.
+
+	Add @vz use to hooks demo code to simplify dbref rewrite.
+
+	Add @trigger based interface for better handling huge jobs on
+	systems with a small function-invocation limit.
+
+
 2012-01-24  Emily Backes  lucca@accela.net
 
 	Update to 1.0.1 release.

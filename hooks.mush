@@ -10,11 +10,14 @@ QUIT
 @vc me=#2621
 -
 
-&hook_apr %vc=think ulocal( #5185/fn_post_job, %0 )
+@vz %vc=#5185
 -
 
-&hook_dny %vc=think ulocal( #5185/fn_post_job, %0 )
+&hook_apr %vc=@trigger %vz/trig_post_job=%0
 -
 
-&hook_com %vc=think ulocal( #5185/fn_post_job, %0 )
+&hook_dny %vc=@trigger %vz/trig_post_job=%0
+-
+
+&hook_com %vc=@trigger %vz/trig_post_job=%0
 -
