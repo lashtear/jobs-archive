@@ -159,7 +159,7 @@ QUIT
   strcat( 
     SELECT forum_id 
     FROM %vpforums 
-    WHERE forum_name = ', ulocal( %va/fn_sqlescape, %0 )', 
+    WHERE LOWER%(forum_name%) = LOWER%(', ulocal( %va/fn_sqlescape, %0 )'%), 
     if( isnum(%1), 
       strcat( %bAND parent_id = %1 )))
 -
@@ -168,7 +168,7 @@ QUIT
   strcat( 
     SELECT user_id 
     FROM %vpusers 
-    WHERE username_clean = ', ulocal( %va/fn_sqlescape, lcstr(%0) )')
+    WHERE LOWER%(username_clean%) = LOWER%(', ulocal( %va/fn_sqlescape, %0 )'%))
 -
 
 &sql_name_by_userid %va=
