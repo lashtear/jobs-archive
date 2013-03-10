@@ -666,10 +666,14 @@ QUIT
     not( strmatch( name( %0 ), Job* )), #-1 Not a job, 
     not( strmatch( xget( setr(p, parent( parent( %0 ))), vc ), %qp )), 
       #-1 Not in a bucket, 
-    not( strmatch( name( %qp ), *Job Parent Object* )), #-1 Invalid JPO, 
+    not( 
+      or( 
+        strmatch( name( %qp ), *Job Parent Object* ), 
+        strmatch( name( parent( %qp )), *Job Parent Object* ))), 
+      #-1 Invalid JPO, 
     strcat( 
       setq( u, ulocal( %va/fn_get_user_id, default(%!/CONF_FORUM_USER, +jobs) )), 
-      setq( f, ulocal( %va/fn_get_forum_id, lcstr( name( parent( %0 ))))), 
+      setq( f, ulocal( %va/fn_get_forum_id, name( parent( %0 )))), 
       switch( %qu|%qf, 
         #-1*|*, #-1 Unable to locate +jobs user, 
         *|#-1*, #-1 Unknown to locate bucket forum, 
@@ -719,10 +723,14 @@ QUIT
     not( strmatch( name( %0 ), Job* )), #-1 Not a job, 
     not( strmatch( xget( setr(p, parent( parent( %0 ))), vc ), %qp )), 
       #-1 Not in a bucket, 
-    not( strmatch( name( %qp ), *Job Parent Object* )), #-1 Invalid JPO, 
+    not( 
+      or( 
+        strmatch( name( %qp ), *Job Parent Object* ), 
+        strmatch( name( parent( %qp )), *Job Parent Object* ))), 
+      #-1 Invalid JPO, 
     strcat( 
       setq( u, ulocal( %va/fn_get_user_id, default(%!/CONF_FORUM_USER, +jobs) )), 
-      setq( f, ulocal( %va/fn_get_forum_id, lcstr( name( parent( %0 ))))), 
+      setq( f, ulocal( %va/fn_get_forum_id, name( parent( %0 )))), 
       switch( %qu|%qf, 
         #-1*|*, #-1 Unable to locate +jobs user, 
         *|#-1*, #-1 Unknown to locate bucket forum, 
