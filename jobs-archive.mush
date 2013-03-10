@@ -61,7 +61,7 @@ QUIT
 -
 &license %va=BSD 3-Clause
 -
-&version %va=1.1.0
+&version %va=1.1.1
 -
 
 # conf prefix of forum tables

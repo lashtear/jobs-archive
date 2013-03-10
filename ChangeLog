@@ -1,3 +1,14 @@
+2013-03-10  Emily Backes  lucca@accela.net
+
+	Update to 1.1.1 release.
+
+	Change user id and forum id lookups to case insensitive.
+
+	Check the grand-parent and great-grand-parent of the job in
+	searching for a valid JPO, to meet the needs of games with deeper
+	parent indirection.
+
+
 2013-01-07  Emily Backes  lucca@accela.net
 
 	Update to 1.1.0 release.
